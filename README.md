@@ -1,0 +1,1 @@
+# DetectWin11CampaignManager
