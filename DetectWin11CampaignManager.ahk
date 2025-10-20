@@ -7,6 +7,9 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 ; Load the name of the script with no extension
 SplitPath, A_ScriptName, ScriptName, ScriptDir, ScriptExt, ScriptNameNoExt, ScriptDrive
 
+; Hide the tray icon
+#NoTrayIcon
+
 ; Disable/Enable services
 G_EnableConsole := (!A_IsCompiled) ; Show the console during testing only
 
@@ -24,12 +27,13 @@ G_iniFilePath := ScriptNameNoExt . ".ini"
 
 ; Information about the Windows 11 upgrade screen, and coordinates of the "Remind me Later" button
 ; (can be discovered using the AutoHotKey Window Spy)
-G_windowTitle := "ahk_class Campaign Manager"
-G_clickX      := 240
-G_clickY      := 1010
+G_windowTitle  := "ahk_class Campaign Manager"
+G_clickX       := 240
+G_clickY       := 1010
 
 ; How often to run the check (or, how long will the nag screen be visible before being automatically closed?)
 G_secPollingInterval := 8
+G_showTrayIcon := true
 
 ; Create the default configuration file (only if it does not already exist)
 if (!FileExist(G_iniFilePath))
@@ -37,7 +41,8 @@ if (!FileExist(G_iniFilePath))
 	iniPairs := "; Information about the Windows 11 upgrade screen, and coordinates of the ""Remind me Later"" button`n; (can be discovered using the AutoHotKey Window Spy)`n"
 	iniPairs := iniPairs . "G_windowTitle=" . G_windowTitle . "`nG_clickX=" . G_clickX . "`nG_clickY=" . G_clickY . "`n"
 	iniPairs := iniPairs . "; How often to run the check (or, how long will the nag screen be visible before being automatically closed?)`n"
-	iniPairs := iniPairs . "G_secPollingInterval=" . G_secPollingInterval
+	iniPairs := iniPairs . "G_secPollingInterval=" . G_secPollingInterval . "`n"
+	iniPairs := iniPairs . "G_showTrayIcon=" . (G_showTrayIcon ? "Y" : "N")
 	
 	IniWrite, %iniPairs%, %G_iniFilePath%, Main
 }
@@ -64,17 +69,24 @@ ExitApp, 0
 DetectWin11CampaignManager()
 {
 	local
-	global G_iniFilePath, G_windowTitle, G_clickX, G_clickY, G_secPollingInterval
+	global G_iniFilePath, G_windowTitle, G_clickX, G_clickY, G_secPollingInterval, G_showTrayIcon
 
 	; Load configuration
 	IniRead, G_windowTitle,        %G_iniFilePath%, Main, G_windowTitle,        %G_windowTitle%
 	IniRead, G_clickX,             %G_iniFilePath%, Main, G_clickX,             %G_clickX%
 	IniRead, G_clickY,             %G_iniFilePath%, Main, G_clickY,             %G_clickY%
 	IniRead, G_secPollingInterval, %G_iniFilePath%, Main, G_secPollingInterval, %G_secPollingInterval%
+	IniRead, G_showTrayIcon,       %G_iniFilePath%, Main, G_showTrayIcon,       %G_showTrayIcon%
 	; Validate configuration
 	G_clickX := (G_clickX < 0 ? 0 : G_clickX)
 	G_clickY := (G_clickY < 0 ? 0 : G_clickY)
 	G_secPollingInterval := (G_secPollingInterval < 1 ? 8 : G_secPollingInterval)
+
+	; Show/Hide the icon in the system tray
+	StringUpper, G_showTrayIcon, G_showTrayIcon
+	G_showTrayIcon := (0 < StrLen(G_showTrayIcon) && ("Y" = SubStr(G_showTrayIcon, 1, 1) || "T" = SubStr(G_showTrayIcon, 1, 1) || "1" = SubStr(G_showTrayIcon, 1, 1)))
+	G_showTrayIconText := (G_showTrayIcon ? "Icon" : "NoIcon")
+	Menu, Tray, %G_showTrayIconText%
 
 	if (0 < StrLen(G_windowTitle) && WinExist(G_windowTitle))
 	{
